@@ -1,6 +1,7 @@
 #!/bin/bash -ue
 #  Xenserver backup script using snapshots (via exports).
 #  Copyright (C) 2010  Christian Bryn <chr.bryn@gmail.com>
+#  Contributor: Lars Falk-Petersen <larsfp@cl.no>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -51,11 +52,17 @@ function backup_vm {
     # params: <vm-name:vm-uuid>
     host="${1}"
     label="${host%%:*}"
+
+    week=""
+    if [ "${noweek}" == "false" ]; then
+        week=$( date "+%V" )
+    fi
+
     # snapshot the mofo
     snap=$( xe vm-snapshot vm="${host##*:}" new-name-label=backup_$( date "+%s" )  ) || return 1;
     trap "xe vm-uninstall uuid="${snap}" force=true > /dev/null" EXIT
     xe template-param-set is-a-template=false uuid="${snap}" > /dev/null || return 1;
-    local backup_file_path="${backup_dir}/$(p_week)/${label%% }"
+    local backup_file_path="${backup_dir}/${week}/${label%% }"
     if [ ! -d "${backup_file_path}"  ]; then
         mkdir -p "${backup_file_path}" || { p_err "Could not create directory ${backup_file_path}!"; exit 1; }
     fi
@@ -74,7 +81,7 @@ function read_config {
     # the sourcing bit works in bash 4, but not in bash 3. darn. let's do something else
     if [ -f "${config_file}" ]; then  
         f=$(mktemp) ; trap "rm ${f} >/dev/null 2>&1" EXIT
-        egrep "^backup_all_vms=|^backup_dir=|^compression=|^exception_list=|^logfile=|^logging=|^mount_command=|^uuids=|^vm_names=" "${config_file}" > ${f}
+        egrep "^backup_all_vms=|^backup_dir=|^compression=|^exception_list=|^logfile=|^logging=|^mount_command=|^uuids=|^vm_names=|^noweek=" "${config_file}" > ${f}
         source ${f} 
         rm ${f} ; unset f
     fi
@@ -99,12 +106,6 @@ function p_info {
         printf "[ info ] %s -  %s\n" "$(date)" "${string}" >> ${logfile}
     else
         printf "${b:-}${yellow:-}[ info ]${t_reset:-} %s - %s\n" "$(date)" "${string}"
-    fi
-}
-
-function p_week {
-    if [ "${noweek}" == "false" ]; then
-        date "+%V"
     fi
 }
 
@@ -232,8 +233,9 @@ logging='${logging}'
 mount_command='${mount_command}'
 uuids='${uuids}'
 vm_names='${@}'
+noweek='${noweek}'
 EOF
-    printf "backup_all_vms='%s'\nbackup_dir='%s'\ncompression='%s'\nexception_list='%s'\nlogfile='%s'\nlogging='%s'\nmount_command='%s'\nuuids='%s'\nvm_names='%s'\n" "${backup_all_vms:-}" "${backup_dir:-}" "${compression:-}" "${exception_list:-}" "${logfile:-}" "${logging:-}" "${mount_command:-}" "${uuids:-}" "${@:-}" > ${config_file}
+    printf "backup_all_vms='%s'\nbackup_dir='%s'\ncompression='%s'\nexception_list='%s'\nlogfile='%s'\nlogging='%s'\nmount_command='%s'\nuuids='%s'\nvm_names='%s'\nnoweek='%s'\n" "${backup_all_vms:-}" "${backup_dir:-}" "${compression:-}" "${exception_list:-}" "${logfile:-}" "${logging:-}" "${mount_command:-}" "${uuids:-}" "${@:-}" "${noweek:-}" > ${config_file}
     exit $?
 fi
 
