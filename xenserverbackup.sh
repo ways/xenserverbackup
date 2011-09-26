@@ -55,13 +55,17 @@ function backup_vm {
     snap=$( xe vm-snapshot vm="${host##*:}" new-name-label=backup_$( date "+%s" )  ) || return 1;
     trap "xe vm-uninstall uuid="${snap}" force=true > /dev/null" EXIT
     xe template-param-set is-a-template=false uuid="${snap}" > /dev/null || return 1;
-    local backup_file_path="${backup_dir}/$( date "+%V" )/${label%% }"
+    local backup_file_path="${backup_dir}/$(p_week)/${label%% }"
     if [ ! -d "${backup_file_path}"  ]; then
         mkdir -p "${backup_file_path}" || { p_err "Could not create directory ${backup_file_path}!"; exit 1; }
     fi
     # export snapshot.
-    xe vm-export compress="${compression}" vm="${snap}" filename="${backup_file_path}/${label}-$( date "+%Y-%m-%d_%H.%M" ).xva" > /dev/null || return 1;
+    exporttimestamp=`date "+%Y-%m-%d_%H.%M"`
+    xe vm-export compress="${compression}" vm="${snap}" filename="${backup_file_path}/${label}-${exporttimestamp}.xva" > /dev/null || return 1;
     xe vm-uninstall uuid="${snap}" force=true > /dev/null
+
+    # create .done-file
+    touch "${backup_file_path}/${label}-${exporttimestamp}.done"
 }
 
 function read_config {
@@ -98,6 +102,12 @@ function p_info {
     fi
 }
 
+function p_week {
+    if [ "${noweek}" == "false" ]; then
+        date "+%V"
+    fi
+}
+
 function print_usage {
     cat <<EOF
 Back up Xenserver instances using snapshots. Specify which instances to back up 
@@ -111,6 +121,7 @@ Usage: ${0} [-a|-b <backup dir>|-c [true|false]|-C <config file>|-d|-e "<excepti
     -e      Space separated list of VMs that should not be backed up.
     -l      Enable/disable logging with 'true' or 'false'.
     -m      Mount command to run previous to running the backup.
+    -s      Simple path in output. No weekly subfolder.
     -u      Specify VMs to back up via uuid.
     -w      Write parameters -a.-b,-c,-e,-m as specified on the command line to 
             default config file path and exit. 
@@ -146,6 +157,7 @@ exception_list=""
 logfile=/var/log/xenserver-backup.log
 logging="false"
 mount_command=""
+noweek="false"
 uuids=""
 vm_names=""
 writeconfig="false"
@@ -153,7 +165,7 @@ writeconfig="false"
 # override defaults, then let command line override the config file..
 read_config
 
-while getopts hc:Cab:de:l:L:m:nu:w o
+while getopts hc:Cab:de:l:L:m:nu:sw o
 do
     case $o in
         h)
@@ -186,6 +198,9 @@ do
             mount_command="${OPTARG}"
             [ "${backup_dir}" == "" ] && { p_err "No backup destination path given."; exit 1; }
             grep -q "${backup_dir}" <( echo "${mount_command}" ) || { p_err "mount command '${mount_command}' does not contain backup dir path '${backup_dir}'?"; exit 1; }
+            ;;
+        s)
+            noweek="true"
             ;;
         u)
             uuids="${OPTARG}"
@@ -256,7 +271,7 @@ fi
 
 start_time="$( date '+%s' )"
 
-p_info "---------- Initiating backup run... ----------"
+p_info "---------- Initiating backup run to ${backup_dir} ----------"
 [ "${dry_run}" == "true" ] && p_info "Performing dry run, will not attempt to actually backup any VMs"
 [ -t 1 -a "${logging}" == "true" ] && { logging="false"; p_info "Logging on, check log file $logfile for status."; logging="true"; }
 # backup vms by name or uuid if not in the exception list

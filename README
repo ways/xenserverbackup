@@ -13,6 +13,7 @@ Usage: ./xenserverbackup.sh [-a|-b <backup dir>|-c [true|false]|-C <config file>
     -e      Space separated list of VMs that should not be backed up.
     -l      Enable/disable logging with 'true' or 'false'.
     -m      Mount command to run previous to running the backup.
+    -s      Simple path in output. No weekly subfolder.
     -u      Specify VMs to back up via uuid.
     -w      Write parameters -a.-b,-c,-e,-m as specified on the command line to 
             default config file path and exit. 
