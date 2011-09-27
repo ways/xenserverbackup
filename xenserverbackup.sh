@@ -166,7 +166,7 @@ writeconfig="false"
 # override defaults, then let command line override the config file..
 read_config
 
-while getopts hc:Cab:de:l:L:m:nu:sw o
+while getopts hc:C:ab:de:l:L:m:nu:ws o
 do
     case $o in
         h)
