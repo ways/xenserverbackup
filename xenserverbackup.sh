@@ -251,7 +251,11 @@ which xe >/dev/null 2>&1 || { p_err "xe not in path!"; exit 1; }
 [ ! -d "${backup_dir}"  ] && { p_err "Backup path ${backup_dir} is not a directory"; exit 1; }
 [ "${compression}" == "true" -o "${compression}" == "false" ] || { p_err "'compression' set to '${compression}', must be either true or false"; exit 1; }
 
-[ "${logging}" == "true" ] && exec >>${logfile} 2>>${logfile}
+[ "${logging}" == "true" ] && \
+  { #create folder if it doesn't exist
+    mkdir -p $( dirname ${logfile} )
+    exec >>${logfile} 2>>${logfile}
+  }
 
 ## main
 # this one should override config file parameter and exception list.
