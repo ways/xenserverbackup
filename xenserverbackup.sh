@@ -1,7 +1,7 @@
 #!/bin/bash -ue
 #  Xenserver backup script using snapshots (via exports).
 #  Copyright (C) 2010  Christian Bryn <chr.bryn@gmail.com>
-#  Contributor: Lars Falk-Petersen <larsfp@cl.no>
+#  Contributor: Lars Falk-Petersen <dev@falk-petersen.no>
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -134,6 +134,8 @@ Examples:
     ${0} -a -b /mnt/backup -e "<vm-name> <vm-name>"
     ${0} -a -b /mnt/backup -e "<vm-name> <vm-name>" -m 'mount -t nfs <ip>:/share /mnt/backup'
     ${0} -a -b /mnt/backup -e "<vm-name> <vm-name>" -m 'mount -t nfs <ip>:/share /mnt/backup' -w
+
+Version 20120216
 EOF
 }
 
@@ -162,6 +164,7 @@ noweek="false"
 uuids=""
 vm_names=""
 writeconfig="false"
+lockfile=/var/run/xenserver-backup.lock
 
 # override defaults, then let command line override the config file..
 read_config
@@ -277,26 +280,35 @@ fi
 
 start_time="$( date '+%s' )"
 
-p_info "---------- Initiating backup run to ${backup_dir} ----------"
-[ "${dry_run}" == "true" ] && p_info "Performing dry run, will not attempt to actually backup any VMs"
-[ -t 1 -a "${logging}" == "true" ] && { logging="false"; p_info "Logging on, check log file $logfile for status."; logging="true"; }
-# backup vms by name or uuid if not in the exception list
-IFS="|"
-for vm in ${vm_list[@]}; do
-    ## vm=hostname:uuid
-    if [ "${vm_names:-}" != "" ]; then
-        [[ ! "${vm_names}" =~ ${vm%%:*} ]] && continue
-    fi
-    if [ "${uuids:-}" != "" ]; then
-        [[ ! "${uuids}" =~ ${vm##*:} ]] && continue
-    fi
-    [[ "${exception_list}" =~ ${vm%%:*} ]] && continue
-    [[ "${exception_list}" =~ ${vm##*:} ]] && continue
-    
-    p_info "Backing up ${vm%%:*} with uuid ${vm##*:}"
-    vm_start_time="$( date '+%s' )"
-    [ "${dry_run}" == "false" ] && backup_vm "${vm}" || continue
-    p_info "Backup of ${vm%%:*} with uuid ${vm##*:} ended successfully taking $(($(date "+%s")-${vm_start_time})) seconds."
-done
-unset IFS
-p_info "Backup run ended taking $(($(date "+%s")-${start_time})) seconds."
+if ( set -o noclobber; echo "$$" > "$lockfile") 2> /dev/null; then
+    trap "rm -f $lockfile; exit$?" INT TERM EXIT
+
+    p_info "---------- Initiating backup run to ${backup_dir} ----------"
+    [ "${dry_run}" == "true" ] && p_info "Performing dry run, will not attempt to actually backup any VMs"
+    [ -t 1 -a "${logging}" == "true" ] && { logging="false"; p_info "Logging on, check log file $logfile for status."; logging="true"; }
+    # backup vms by name or uuid if not in the exception list
+    IFS="|"
+    for vm in ${vm_list[@]}; do
+        ## vm=hostname:uuid
+        if [ "${vm_names:-}" != "" ]; then
+            [[ ! "${vm_names}" =~ ${vm%%:*} ]] && continue
+        fi
+        if [ "${uuids:-}" != "" ]; then
+            [[ ! "${uuids}" =~ ${vm##*:} ]] && continue
+        fi
+        [[ "${exception_list}" =~ ${vm%%:*} ]] && continue
+        [[ "${exception_list}" =~ ${vm##*:} ]] && continue
+        
+        p_info "Backing up ${vm%%:*} with uuid ${vm##*:}"
+        vm_start_time="$( date '+%s' )"
+        [ "${dry_run}" == "false" ] && backup_vm "${vm}" || continue
+        p_info "Backup of ${vm%%:*} with uuid ${vm##*:} ended successfully taking $(($(date "+%s")-${vm_start_time})) seconds."
+    done
+    unset IFS
+    p_info "Backup run ended taking $(($(date "+%s")-${start_time})) seconds."
+
+    rm -f $lockfile
+    trap - INT TERM EXIT
+else
+    echo "Error: lockfile found in $lockfile, held by $(cat $lockfile)"
+fi
