@@ -59,7 +59,8 @@ function backup_vm {
     fi
 
     # snapshot the mofo
-    snap=$( xe vm-snapshot vm="${host##*:}" new-name-label=backup_$( date "+%s" )  ) || return 1;
+    exporttimestamp=`date "+%Y-%m-%d_%H.%M"`
+    snap=$( xe vm-snapshot vm="${host##*:}" new-name-label=${label}-${exporttimestamp}_backup ) || return 1;
     trap "xe vm-uninstall uuid="${snap}" force=true > /dev/null" EXIT
     xe template-param-set is-a-template=false uuid="${snap}" > /dev/null || return 1;
     local backup_file_path="${backup_dir}/${week}/${label%% }"
@@ -67,7 +68,6 @@ function backup_vm {
         mkdir -p "${backup_file_path}" || { p_err "Could not create directory ${backup_file_path}!"; exit 1; }
     fi
     # export snapshot.
-    exporttimestamp=`date "+%Y-%m-%d_%H.%M"`
     xe vm-export compress="${compression}" vm="${snap}" filename="${backup_file_path}/${label}-${exporttimestamp}.xva" > /dev/null || return 1;
     xe vm-uninstall uuid="${snap}" force=true > /dev/null
 
@@ -135,7 +135,7 @@ Examples:
     ${0} -a -b /mnt/backup -e "<vm-name> <vm-name>" -m 'mount -t nfs <ip>:/share /mnt/backup'
     ${0} -a -b /mnt/backup -e "<vm-name> <vm-name>" -m 'mount -t nfs <ip>:/share /mnt/backup' -w
 
-Version 20120216
+Version 20120607
 EOF
 }
 
