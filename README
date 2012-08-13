@@ -26,3 +26,6 @@ Examples:
     ./xenserverbackup.sh -a -b /mnt/backup -e "<vm-name> <vm-name>" -m 'mount -t nfs <ip>:/share /mnt/backup'
     ./xenserverbackup.sh -a -b /mnt/backup -e "<vm-name> <vm-name>" -m 'mount -t nfs <ip>:/share /mnt/backup' -w
 
+
+== News ==
+20120813 - VMs with name ending in _backup are now skipped to avoid taking backup of backups.

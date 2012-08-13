@@ -16,7 +16,6 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 ## functions
 function vmlist {
     # get, parse and return 'associative' array in format <vm label>:<vm uuid>
@@ -135,7 +134,7 @@ Examples:
     ${0} -a -b /mnt/backup -e "<vm-name> <vm-name>" -m 'mount -t nfs <ip>:/share /mnt/backup'
     ${0} -a -b /mnt/backup -e "<vm-name> <vm-name>" -m 'mount -t nfs <ip>:/share /mnt/backup' -w
 
-Version 20120607
+Version 20120813
 EOF
 }
 
@@ -281,7 +280,7 @@ fi
 start_time="$( date '+%s' )"
 
 if ( set -o noclobber; echo "$$" > "$lockfile") 2> /dev/null; then
-    trap "rm -f $lockfile; exit$?" INT TERM EXIT
+    trap "rm -f $lockfile; exit $?" INT TERM EXIT
 
     p_info "---------- Initiating backup run to ${backup_dir} ----------"
     [ "${dry_run}" == "true" ] && p_info "Performing dry run, will not attempt to actually backup any VMs"
@@ -293,6 +292,10 @@ if ( set -o noclobber; echo "$$" > "$lockfile") 2> /dev/null; then
         if [ "${vm_names:-}" != "" ]; then
             [[ ! "${vm_names}" =~ ${vm%%:*} ]] && continue
         fi
+
+        [[ 0 -lt $(echo ${vm%%:*} | egrep -o '_backup$' -c) ]] \
+            && { p_err "${vm%%:*} looks like a lingering backup and should probably be removed, skipping."; continue; }
+
         if [ "${uuids:-}" != "" ]; then
             [[ ! "${uuids}" =~ ${vm##*:} ]] && continue
         fi
