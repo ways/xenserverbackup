@@ -1,5 +1,9 @@
 == TODO ==
 
+BUG:
+* Takes backup of backups
+
+Feature:
 * Clean crud
 * Should 'backup control domain' be an available option at all? Untested and uninvestigated by me, but other xenserver backup scripts on ze web implements skipping the control domain itself.
 * The read-config file and(/or) parse-commandline routine needs some sanity checking.
